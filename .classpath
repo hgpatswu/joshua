@@ -18,5 +18,7 @@
 	<classpathentry kind="lib" path="lib/jung-graph-impl-2.0.1.jar"/>
 	<classpathentry kind="lib" path="lib/jung-api-2.0.1.jar"/>
 	<classpathentry kind="lib" path="lib/mockito-all-1.9.5.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang3-3.1-sources.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang3-3.1.jar" sourcepath="lib/commons-lang3-3.1-sources.jar"/>
 	<classpathentry kind="output" path="class"/>
 </classpath>

@@ -55,6 +55,8 @@ public abstract class EvaluationMetric {
     metricOptionCount.put("SRC_BLEU", 4);
     metricOptionCount.put("PRECIS-SRC_BLEU", 6);
     metricOptionCount.put("GL_BLEU", 3);
+    
+    metricOptionCount.put("MinKSR", 1);
   }
 
   public static EvaluationMetric getMetric(String metricName, String[] metricOptions) {
@@ -93,6 +95,8 @@ public abstract class EvaluationMetric {
     } else if (metricName.equals("GL_BLEU")) {
       retMetric = new GradeLevelBLEU(metricOptions); // the "GL_BLEU" metric corresponds to the
                                                      // GradeLevelBLEU class
+    } else if (metricName.equals("MinKSR")) {
+      retMetric = new MinKSR(metricOptions);
     }
     return retMetric;
   }
