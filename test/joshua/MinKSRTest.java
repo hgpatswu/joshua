@@ -5,8 +5,6 @@ import joshua.metrics.EvaluationMetric;
 import joshua.metrics.MinKSR;
 import joshua.metrics.TER;
 
-import org.testng.Assert;
-
 public class MinKSRTest {
 
   public static void main(String[] args) {
@@ -26,7 +24,7 @@ public class MinKSRTest {
 //    String test1 = "福利 中国 考虑 改革 才能 公务员 制度";
     
 //    String test1="“通过 对话 是 实现 政治 解决 的 唯一 正确 途径 和 国际 社会 的 共识 。";
-    String test1="“实现 通过 对话 的 政治 解决 是 唯一 正确 途径 也 是 国际 社会 共识 。";
+    String test1="“通过 对话 实现 政治 解决 是 唯一 正确 的 途径 ， 这 也 是 国际 社会 的 共识 。";
     
 //    String test1 = "a b c c de de de de de f g h";
 //    String test2 = "好 逐渐 情况 经济 中国";

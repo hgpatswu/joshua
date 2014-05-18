@@ -2,8 +2,10 @@ package joshua.metrics;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -21,7 +23,16 @@ public class MinKSR extends EvaluationMetric {
   protected double minKSRatioNormal = 2;
   protected int KS4SelectIME = 1;
   protected int KS4SelectPrediction = 1;
-    
+   
+  private Set<String> puncSet = new HashSet<>();
+  private Set<String> alphaSet = new HashSet<>();
+  private Set<String> numberSet = new HashSet<>();
+  
+  private String puncStr;
+  private String alphaStr;
+  private String numericStr;
+  private String alphanumericStr;
+
   public MinKSR(){
     this(4);
   }
@@ -41,8 +52,34 @@ public class MinKSR extends EvaluationMetric {
     initialize();
   }
   
+  public static List<String> toList(char[] array){
+    if (array == null) return null;
+    List<String> list = new ArrayList<>();
+    for (char c : array){
+      list.add(String.valueOf(c));
+    }
+    
+    return list;
+  }
+  
+  protected void initSymbol(){
+    puncStr="~`!@#$%^&*()-=_+[]{}\\|;':\",./<>?/·！￥…（）—、【】：“”；‘’，《》。？";
+    puncSet.addAll(toList(puncStr.toCharArray()));
+    
+    alphaStr="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    alphaSet.addAll(toList(alphaStr.toCharArray()));
+    
+    numericStr="0123456789";
+    alphaSet.addAll(toList(numericStr.toCharArray()));
+    
+    alphanumericStr = alphaStr+numericStr;
+
+  }
+  
   @Override
   protected void initialize() {
+    
+    
     this.metricName = "MinKSR";
     toBeMinimized = false;
     
@@ -123,11 +160,9 @@ public class MinKSR extends EvaluationMetric {
     }
     
     double BP = 1.0;
-//    if (Math.abs(c_len) < Math.pow(10, -9)) return 0;
-    if ( c_len < 1 ) return 0;
-//    if (c_len < r_len)
-//      BP = Math.exp(1 - (r_len / c_len));
-    // if c_len < r_len, no penalty applies
+    if (c_len > r_len)
+      BP = Math.exp(1 - (c_len / r_len));
+    // if c_len <= r_len, no penalty applies
         
     double score = BP * minKSR;
     return score;
@@ -150,9 +185,9 @@ public class MinKSR extends EvaluationMetric {
     }
     
     double BP = 1.0;
-//    if (c_len < r_len)
-//      BP = Math.exp(1 - (r_len / c_len));
-    // if c_len < r_len, no penalty applies
+    if (c_len > r_len)
+      BP = Math.exp(1 - (c_len / r_len));
+    // if c_len <= r_len, no penalty applies
     
     System.out.println("minKeysNormal = "+f4.format(minKeysNormal));
     System.out.println("keysTINPE = "+f4.format(keysTINPE));
@@ -236,80 +271,38 @@ public class MinKSR extends EvaluationMetric {
     
     String[] refws = refWords[i][r];
     if (refws == null || refws.length == 0) return sum;
-    int startIndex = 0;
-    while (startIndex < refws.length 
-        && startIndex < words.length
-        && startIndex < maxGramLength
-        && refws[startIndex].equals(words[startIndex])){
-      startIndex++;      
-    }
-    if (startIndex > 0) sum += KS4SelectPrediction + separatorLength;
     
-    while (startIndex < refws.length){
-      if (startIndex == 0 || ArrayUtils.contains(words, refws[startIndex - 1]) == false){
-        sum += Math.max(Math.floor(refws[startIndex].length() * minKSRatioNormal), 1);
-
-        if (startIndex < refws.length -1 ) {
-          sum += separatorLength + KS4SelectIME;
-        }else{
-          sum += KS4SelectIME;
+    List<int[]> commonSubIndexList = commonSubIndexArray(refws, words);
+    
+    int[] flagList = new int [refws.length];
+    for (int[] indexPair : commonSubIndexList){
+      for (int ii=indexPair[0]; ii<indexPair[1]; ii++){
+        if ((ii==indexPair[0] && indexPair[0] != 0)
+              || (indexPair[0] == 0 && !refws[0].equals(words[0]))) flagList[ii] = 1;//anchor word
+        else  flagList[ii] = 2;//n-gram prediction
+      }
+    }
+    
+    int curAnchor = -2;
+    for (int ii = 0, len = refws.length; ii < len; ii++){
+      if (flagList[ii] == 1){//anchor
+        curAnchor = ii;
+        sum += refws[ii].length() + KS4SelectIME;
+      }else if (flagList[ii] == 2){//n-gram prediction
+        if (ii == 0) curAnchor = -1;
+        if (ii - curAnchor > 4){
+          curAnchor = ii - 1;
         }
         
-        startIndex++;
-        continue;
-      }
-      
-      int tempIndex = startIndex;
-      int anchorPoint = ArrayUtils.indexOf(words,  refws[startIndex-1]);
-      int anchorIndex = anchorPoint + 1;
-      
-      //select anchorIndex
-      List<Integer> anchorIndexList = new ArrayList<>();
-      List<Integer> matchLenList = new ArrayList<>();
-      while (anchorIndex != 0){
-        int tempAnchorIndex = anchorIndex;
-        int currentLen = 0;
-        int ii = startIndex;
+        if (ii-curAnchor == 1) sum += KS4SelectPrediction;
         
-        while (ii < refws.length
-            && tempAnchorIndex < words.length
-            && refws[ii].equals(words[tempAnchorIndex])
-            && currentLen < maxGramLength){
-          ii++;
-          tempAnchorIndex++;
-          currentLen++;
-        }
-        
-        if (currentLen > 0) {
-          anchorIndexList.add(anchorIndex);
-          matchLenList.add(currentLen);
-        }
-        anchorPoint = ArrayUtils.indexOf(words, refws[startIndex - 1], anchorPoint +1);
-        anchorIndex = anchorPoint + 1;
+        continue;        
+      }else{//normal
+        curAnchor = -2;
+        sum += refws[ii].length() * minKSRatioNormal + KS4SelectIME;
       }
       
-      if (anchorIndexList.size() == 0){
-        sum += Math.max(Math.ceil(refws[startIndex].length() * minKSRatioNormal), 1);
-        startIndex++;
-        if (startIndex < refws.length)
-          sum += separatorLength + KS4SelectIME;
-        else
-          sum += KS4SelectIME;
-        
-        continue;
-      }
-      
-      int maxId = 0;
-      for (int jj = 0; jj < matchLenList.size(); jj++){
-        if (matchLenList.get(jj) <= matchLenList.get(maxId)) continue;
-        maxId = jj;
-      }
-      sum += KS4SelectPrediction;
-      startIndex += matchLenList.get(maxId);
-      if (startIndex < refws.length){
-        sum += separatorLength;
-      }
-      
+      if (ii != len - 1) sum += separatorLength;
     }
     
     return sum;
@@ -329,4 +322,67 @@ public class MinKSR extends EvaluationMetric {
     
     return sum;
   }
+  
+  /**
+   * aArray在bArray中的共同子串下标
+   * @param aArray
+   * @param bArray
+   * @return
+   */
+  public static <T> List<int[]> commonSubIndexArray(T[] aArray, T[] bArray){
+    List<int[]> anchorIndexList = new ArrayList<>();
+    if (ArrayUtils.isEmpty(aArray) || ArrayUtils.isEmpty(bArray)) return anchorIndexList;
+    int i = 0, aLen = aArray.length, bLen = bArray.length;
+    
+    
+    List<Integer> indexList = null;
+    while (i < aLen){
+       indexList = allIndexOf(aArray[i], bArray);
+       if (indexList.isEmpty()){
+         i++;
+         continue;
+       }
+       
+       int maxLen = 0;
+       int[] anchorIndex = new int[2];
+       for (int index : indexList){
+         int j = i, k = index, currLen = 0;
+         while (j < aLen && k < bLen){
+           if (aArray[j].equals(bArray[k])){
+             currLen ++;
+           }else break;
+           
+           j++; k++;
+         }
+         
+         if (currLen <= maxLen) continue;
+         maxLen = currLen;
+         
+         anchorIndex[0] = i;
+         anchorIndex[1] = j;
+       }
+       
+       anchorIndexList.add(anchorIndex);
+       i += maxLen;
+    }
+    
+    return anchorIndexList;
+  }
+
+  public static <T> List<Integer> allIndexOf(T item, T[] array){
+    List<Integer> resultList = new ArrayList<>();
+    if (ArrayUtils.isEmpty(array)) return resultList;
+    
+    int i = 0, len = array.length;
+    while (i < len){
+      i = ArrayUtils.indexOf(array, item, i);
+      if (i == -1) break;
+      
+      resultList.add(i);
+      i++;
+    }
+    
+    return resultList;
+  }
+
 }
