@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import joshua.util.StringUtils;
+import joshua.util.SuffixMatchResult;
+
 import org.apache.commons.lang3.ArrayUtils;
 
 public class MinKSR extends EvaluationMetric {
@@ -258,7 +261,6 @@ public class MinKSR extends EvaluationMetric {
     if (refWords[i][r] == null || refWords[i][r].length == 0) return sum;
     
     for (int w = 0; w < refWords[i][r].length; w++){
-//      sum += Math.max(Math.floor(refWords[i][r][w].length() * minKSRatioNormal), 1);
       sum += Math.max(Math.ceil(refWords[i][r][w].length() * minKSRatioNormal), 1);
       sum += separatorLength + KS4SelectIME;
     }
@@ -267,6 +269,63 @@ public class MinKSR extends EvaluationMetric {
   }
   
   protected int keysTINPE(String[] words, int i, int r){
+    int sum = 0;
+    
+    String[] refws = refWords[i][r];
+    int refLen = refws.length;
+    if (refws == null || refws.length == 0) return sum;
+    
+    int sentLen = words.length;
+    int j = 0;
+    for (int k = 0; k < maxGramLength && k < words.length && k < refLen; k++){
+      if (!refws[k].equals(words[k])) break;
+      
+      j++;
+    }
+    if (j > 0) sum++;
+    
+    while (j < refLen){
+      SuffixMatchResult matchResult = StringUtils.suffixMatch(words, 0, sentLen, refws, 0, j);
+      if (matchResult.startPos >= 0){
+        int matched = 0;
+        for (int m = 1; m <= maxGramLength && j+m-1<refLen && matchResult.startPos+m<sentLen; m++){
+          if (!refws[j+m-1].equals(words[matchResult.startPos+m])) break;
+          
+          matched++;
+        }
+        if (matched > 0){
+          sum += KS4SelectPrediction;
+          j += matched;
+          continue;
+        }
+      }
+      
+      int index = ArrayUtils.indexOf(words, refws[j]);
+      if (index == ArrayUtils.INDEX_NOT_FOUND){
+        sum += refws[j].length()*minKSRatioNormal + KS4SelectIME;
+        
+        j++;
+        continue;
+      }
+      
+      int charNum = refws[j].length();
+      int k = 1;
+      for (; k <= maxGramLength && j+k < refLen; k++){
+        if (StringUtils.suffixMatch(words, 0, sentLen, refws, 0, j+k).startPos != ArrayUtils.INDEX_NOT_FOUND)  break;
+        
+        index = ArrayUtils.indexOf(words, refws[j+k]);
+        if (index == ArrayUtils.INDEX_NOT_FOUND) break;
+        
+        charNum += refws[j+k].length();
+      }
+      j += k;
+      sum += charNum + KS4SelectIME;
+    }
+    
+    return sum;
+  }
+  
+  protected int keysTINPE_bak(String[] words, int i, int r){
     int sum = 0;
     
     String[] refws = refWords[i][r];
